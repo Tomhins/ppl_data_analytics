@@ -1,0 +1,29 @@
+# Load the raw sales data
+source "../data/sales.csv"
+
+# Data quality checks
+assert amount > 0
+fill region "Unknown"
+
+
+# Clean and transform
+trim product
+uppercase region
+cast amount float
+cast date datetime
+
+# Filter to completed orders only
+filter status == "completed"
+
+# Add a derived column
+add revenue = amount * quantity
+
+# Aggregate by region
+group by region
+agg sum revenue, avg amount, count
+
+# Sort for readability
+sort by revenue desc
+
+# Save the processed data for Python to pick up
+save "../output/processed.csv"
