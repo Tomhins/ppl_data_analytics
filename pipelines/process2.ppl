@@ -1,0 +1,148 @@
+# ============================================================
+#  YouTube Trending Videos — Data Cleaning Pipeline
+#  Purpose : Benchmark / speed testing for the PPL system
+#  Input   : youtube_trending_videos_global_cleaned.csv
+#  Output  : output/youtube_trending_videos_final.csv
+# ============================================================
+
+# --- start total timer ---
+timer start total
+
+# ────────────────────────────────────────────
+# 1. LOAD
+# ────────────────────────────────────────────
+timer start load
+log "Loading source CSV..."
+source "../data/youtube_trending_videos_global_cleaned.csv"
+timer stop load
+
+log "Schema before cleaning:"
+schema
+
+# ────────────────────────────────────────────
+# 2. REMOVE EXACT DUPLICATES
+# ────────────────────────────────────────────
+timer start dedup
+log "Removing duplicate rows..."
+distinct
+timer stop dedup
+
+# ────────────────────────────────────────────
+# 3. DROP ROWS MISSING CRITICAL FIELDS
+# ────────────────────────────────────────────
+timer start nulls
+log "Dropping rows with missing critical values..."
+fill video_id drop
+fill video_trending__date drop
+fill video_trending_country drop
+fill channel_id drop
+fill video_title drop
+timer stop nulls
+
+# ────────────────────────────────────────────
+# 4. FILL OPTIONAL MISSING VALUES
+# ────────────────────────────────────────────
+log "Filling optional missing values..."
+fill video_description "N/A"
+fill video_tags "[]"
+fill video_category_id 0
+fill video_duration "PT0S"
+fill video_dimension "2d"
+fill video_definition "sd"
+fill video_licensed_content "False"
+fill video_view_count 0
+fill video_like_count 0
+fill video_comment_count 0
+fill channel_description "N/A"
+fill channel_custom_url "N/A"
+fill channel_country "Unknown"
+fill channel_view_count 0
+fill channel_subscriber_count 0
+fill channel_have_hidden_subscribers "False"
+fill channel_video_count 0
+fill channel_localized_title "N/A"
+fill channel_localized_description "N/A"
+
+# ────────────────────────────────────────────
+# 5. CAST NUMERIC COLUMNS
+# ────────────────────────────────────────────
+timer start casting
+log "Casting numeric columns..."
+try
+    cast video_category_id int
+on_error log "Warning: could not cast video_category_id — skipping"
+try
+    cast video_view_count int
+on_error fill video_view_count 0
+try
+    cast video_like_count int
+on_error fill video_like_count 0
+try
+    cast video_comment_count int
+on_error fill video_comment_count 0
+try
+    cast channel_view_count int
+on_error fill channel_view_count 0
+try
+    cast channel_subscriber_count int
+on_error fill channel_subscriber_count 0
+try
+    cast channel_video_count int
+on_error fill channel_video_count 0
+timer stop casting
+
+# ────────────────────────────────────────────
+# 6. CAST DATE COLUMNS
+# ────────────────────────────────────────────
+timer start dates
+log "Casting date columns..."
+try
+    cast video_published_at datetime
+on_error log "Warning: could not cast video_published_at"
+try
+    cast video_trending__date datetime
+on_error log "Warning: could not cast video_trending__date"
+try
+    cast channel_published_at datetime
+on_error log "Warning: could not cast channel_published_at"
+timer stop dates
+
+# ────────────────────────────────────────────
+# 7. TRIM TEXT FIELDS
+# ────────────────────────────────────────────
+timer start text
+log "Trimming text fields..."
+trim video_title
+trim channel_title
+trim video_description
+trim channel_description
+trim video_trending_country
+trim channel_country
+timer stop text
+
+# ────────────────────────────────────────────
+# 8. DATA QUALITY ASSERTIONS
+# ────────────────────────────────────────────
+timer start assertions
+log "Running data quality assertions..."
+try
+    assert video_view_count >= 0
+on_error log "Warning: negative view counts detected"
+try
+    assert video_like_count >= 0
+on_error log "Warning: negative like counts detected"
+try
+    assert channel_subscriber_count >= 0
+on_error log "Warning: negative subscriber counts detected"
+timer stop assertions
+
+# ────────────────────────────────────────────
+# 9. SAVE
+# ────────────────────────────────────────────
+timer start save
+log "Saving cleaned output..."
+save "../output/youtube_trending_videos_final.csv"
+timer stop save
+
+timer stop total
+log "Pipeline complete. Output saved to output/youtube_trending_videos_final.csv"
